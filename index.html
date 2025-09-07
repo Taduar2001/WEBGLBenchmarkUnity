@@ -6,27 +6,77 @@
   <style>
     body {
       margin: 0;
-      /* Здесь можно задать фон — цвет, градиент или картинку */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
       background: linear-gradient(120deg, #ff9a9e 0%, #fad0c4 100%);
       height: 100vh;
     }
     .transparent-iframe {
       width: 80%;
-      height: 80%;
+      height: 70%;
       border: none;
       background-color: transparent;
     }
     iframe {
-      display: block;
-      margin: auto;
       background-color: transparent;
+    }
+    .controls {
+      display: flex;
+      gap: 20px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #fff;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      transition: transform 0.2s;
+    }
+    button:hover {
+      transform: scale(1.05);
     }
   </style>
 </head>
 <body>
-  <iframe class="transparent-iframe"
+  <iframe id="game-frame"
+          class="transparent-iframe"
           src="https://webgltestorg.github.io/TestAll2/"
           allowtransparency="true">
   </iframe>
+
+  <div class="controls">
+    <button id="btn1">Открыть кусок #1</button>
+    <button id="btn2">Открыть кусок #2</button>
+  </div>
+
+  <script>
+    const frame = document.getElementById('game-frame');
+
+    async function openByUser(userId) {
+      const api = frame.contentWindow?.CakeAPI;
+      if (!api) {
+        console.warn('API игры ещё не готово');
+        return;
+      }
+      if (api.isBusy()) {
+        console.warn('Игра занята, дождитесь Idle');
+        return;
+      }
+      const ok = await api.openByUserId(userId);
+      if (!ok) console.warn('Не удалось открыть кусочек', userId);
+    }
+
+    document.getElementById('btn1').addEventListener('click', () => {
+      openByUser('00000000-0000-0000-0000-000000000001'); // UUID кусочка #1
+    });
+    document.getElementById('btn2').addEventListener('click', () => {
+      openByUser('00000000-0000-0000-0000-000000000002'); // UUID кусочка #2
+    });
+  </script>
 </body>
 </html>
