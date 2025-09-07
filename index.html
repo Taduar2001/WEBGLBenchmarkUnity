@@ -1,82 +1,78 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Прозрачный iframe demo</title>
   <style>
     body {
       margin: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 20px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px;
       background: linear-gradient(120deg, #ff9a9e 0%, #fad0c4 100%);
       height: 100vh;
     }
-    .transparent-iframe {
-      width: 80%;
-      height: 70%;
-      border: none;
-      background-color: transparent;
-    }
-    iframe {
-      background-color: transparent;
-    }
-    .controls {
-      display: flex;
-      gap: 20px;
-    }
+    .transparent-iframe { width: 80%; height: 70%; border: none; background-color: transparent; }
+    iframe { background-color: transparent; }
+    .controls { display: flex; gap: 20px; }
     button {
-      padding: 10px 20px;
-      font-size: 16px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      background: #fff;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-      transition: transform 0.2s;
+      padding: 10px 20px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer;
+      background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: transform 0.2s;
     }
-    button:hover {
-      transform: scale(1.05);
-    }
+    button:hover { transform: scale(1.05); }
+    .hint { font: 14px/1.4 system-ui, sans-serif; opacity: .8; }
   </style>
 </head>
 <body>
   <iframe id="game-frame"
           class="transparent-iframe"
           src="https://webgltestorg.github.io/TestAll2/"
-          allowtransparency="true">
-  </iframe>
+          allowtransparency="true"></iframe>
 
   <div class="controls">
-    <button id="btn1">Открыть кусок #1</button>
-    <button id="btn2">Открыть кусок #2</button>
+    <button id="btn1" disabled>Открыть кусок #1</button>
+    <button id="btn2" disabled>Открыть кусок #2</button>
   </div>
+  <div class="hint">Ожидание готовности iframe…</div>
 
   <script>
     const frame = document.getElementById('game-frame');
+    const TARGET_ORIGIN = 'https://webgltestorg.github.io'; // origin игры (iframe)
+    const hintEl = document.querySelector('.hint');
+    const btn1 = document.getElementById('btn1');
+    const btn2 = document.getElementById('btn2');
 
-    async function openByUser(userId) {
-      const api = frame.contentWindow?.CakeAPI;
-      if (!api) {
-        console.warn('API игры ещё не готово');
-        return;
+    // Включаем кнопки, когда игра сообщит, что готова
+    window.addEventListener('message', (e) => {
+      if (e.origin !== TARGET_ORIGIN) return;
+      if (e.data && e.data.type === 'IFRAME_READY') {
+        btn1.disabled = false;
+        btn2.disabled = false;
+        if (hintEl) hintEl.textContent = 'Iframe готов. Кнопки активны.';
       }
-      if (api.isBusy()) {
-        console.warn('Игра занята, дождитесь Idle');
-        return;
+      if (e.data && e.data.type === 'BUSY_STATE') {
+        const busy = !!e.data.payload?.busy;
+        btn1.disabled = busy;
+        btn2.disabled = busy;
       }
-      const ok = await api.openByUserId(userId);
-      if (!ok) console.warn('Не удалось открыть кусочек', userId);
+    });
+
+    function openByUser(userId) {
+      frame.contentWindow?.postMessage({
+        type: 'OPEN_BY_USER',
+        payload: { userId }
+      }, TARGET_ORIGIN);
     }
 
-    document.getElementById('btn1').addEventListener('click', () => {
-      openByUser('00000000-0000-0000-0000-000000000001'); // UUID кусочка #1
+    btn1.addEventListener('click', () => {
+      openByUser('00000000-0000-0000-0000-000000000001'); // подставь реальный UUID
     });
-    document.getElementById('btn2').addEventListener('click', () => {
-      openByUser('00000000-0000-0000-0000-000000000002'); // UUID кусочка #2
+    btn2.addEventListener('click', () => {
+      openByUser('00000000-0000-0000-0000-000000000002'); // подставь реальный UUID
     });
+
+    // Можно периодически спрашивать занятость (опционально)
+    setInterval(() => {
+      frame.contentWindow?.postMessage({ type: 'QUERY_BUSY' }, TARGET_ORIGIN);
+    }, 500);
   </script>
 </body>
 </html>
