@@ -38,15 +38,13 @@
 
   <script>
   const frame = document.getElementById('game-frame');
-  const TARGET_ORIGIN = 'https://webgltestorg.github.io'; // домен игры
+  const TARGET_ORIGIN = 'https://webgltestorg.github.io';
 
   const randomBtn = document.getElementById('randomBtn');
-  const openBtn = document.getElementById('openBtn');
-  const closeBtn = document.getElementById('closeBtn');
+  const openBtn   = document.getElementById('openBtn');
+  const closeBtn  = document.getElementById('closeBtn');
   const userIdInput = document.getElementById('userIdInput');
   const hint = document.getElementById('hint');
-
-  let currentOpen = null; // храним инфу об открытом кусочке (если есть)
 
   function post(type, payload) {
     frame.contentWindow?.postMessage({ type, payload }, TARGET_ORIGIN);
@@ -77,67 +75,61 @@
 
       case 'BUSY_STATE': {
         const busy = !!payload?.busy;
-        // ВАЖНО: не трогаем closeBtn здесь!
+        // ВАЖНО: closeBtn не трогаем — он должен уметь закрывать вручную открытый кусок (LockedOut тоже считается "busy")
         randomBtn.disabled = busy;
         openBtn.disabled = busy;
         break;
       }
 
-      case 'OPEN_RESULT':
-        console.log('Результат открытия:', payload);
-        setTimeout(() => post('QUERY_BUSY'), 200);
-        break;
-
       case 'OPENING': {
-        console.log('Начало открытия кусочка:', payload);
         const piece = payload?.piece;
-        currentOpen = payload || null;
         hint.textContent = piece
           ? `Открываем: ${piece.title ?? piece.name ?? piece.user_id ?? '—'}`
-          : `Открываем кусочек (level=${payload?.level}, slot=${payload?.slot})`;
-        // Кнопку закрытия включим только когда реально открыт (OPENED)
+          : `Открываем (L=${payload?.level}, S=${payload?.slot})`;
         break;
       }
 
       case 'OPENED': {
-        console.log('Кусочек открыт:', payload);
         const piece = payload?.piece;
-        currentOpen = payload || null;
         hint.textContent = piece
           ? `Открыт: ${piece.title ?? piece.name ?? piece.user_id ?? '—'}`
           : 'Кусочек открыт';
-        closeBtn.disabled = false; // тут включаем
+        closeBtn.disabled = false;             // ← включаем закрытие
         break;
       }
 
-      case 'CLOSED':
-        console.log('Кусочек закрыт:', payload);
-        currentOpen = null;
+      case 'CLOSED': {
         hint.textContent = 'Кусочек закрыт.';
         closeBtn.disabled = true;
         break;
+      }
 
-      case 'OPEN_FAILED':
-        console.warn('Открытие не удалось:', payload);
-        currentOpen = null;
-        closeBtn.disabled = true;
+      case 'OPEN_FAILED': {
         hint.textContent = 'Ошибка открытия.';
+        closeBtn.disabled = true;
         break;
+      }
+
+      case 'CLOSE_RESULT': {
+        // опционально — показать успех/неуспех закрытия
+        if (!payload?.ok) console.warn('Не удалось закрыть (ничего не открыто?)');
+        break;
+      }
     }
   });
 
-  // кнопки
+  // Кнопки
   randomBtn.addEventListener('click', () => post('OPEN_RANDOM'));
   openBtn.addEventListener('click', () => {
     const id = userIdInput.value.trim();
-    if (!id) {
-      alert('Введите user_id');
-      return;
-    }
+    if (!id) { alert('Введите user_id'); return; }
     post('OPEN_BY_USER', { userId: id });
   });
-  closeBtn.addEventListener('click', () => post('CLOSE_ANY')); // синоним CLOSE_OPENED
+
+  // ВАЖНО: эта кнопка шлёт CLOSE_ANY — закроет и вручную открытый кусочек
+  closeBtn.addEventListener('click', () => post('CLOSE_ANY'));
 </script>
+
 
 </body>
 </html>
