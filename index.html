@@ -12,8 +12,8 @@
       font-family: system-ui, sans-serif;
     }
     .transparent-iframe { width: 20%; height: 70%; border: none; background-color: transparent; }
-    .controls { display: flex; gap: 12px; align-items: center; }
-    input[type="text"] { padding: 8px 10px; width: 380px; border-radius: 8px; border: none; }
+    .controls { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+    input[type="text"] { padding: 8px 10px; width: 280px; border-radius: 8px; border: none; }
     button {
       padding: 10px 16px; font-size: 14px; border: none; border-radius: 8px; cursor: pointer;
       background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: transform 0.2s;
@@ -32,6 +32,7 @@
     <button id="randomBtn" disabled>🎲 Случайный кусок</button>
     <input id="userIdInput" type="text" placeholder="Введите user_id (UUID)" />
     <button id="openBtn" disabled>🔎 Открыть по user_id</button>
+    <button id="closeBtn" disabled>❌ Закрыть кусочек</button>
   </div>
   <div class="hint" id="hint">Ожидание готовности iframe…</div>
 
@@ -41,6 +42,7 @@
 
     const randomBtn = document.getElementById('randomBtn');
     const openBtn = document.getElementById('openBtn');
+    const closeBtn = document.getElementById('closeBtn');
     const userIdInput = document.getElementById('userIdInput');
     const hint = document.getElementById('hint');
 
@@ -53,30 +55,47 @@
       if (e.origin !== TARGET_ORIGIN) return;
       const { type, payload } = e.data || {};
 
-      if (type === 'IFRAME_READY') {
-        hint.textContent = 'Iframe жив. Ждём данные…';
-        post('QUERY_INFO');
-      }
-      if (type === 'INFO') {
-        const n = payload?.piecesCount ?? 0;
-        if (n > 0) {
-          hint.textContent = `Данные готовы: ${n} кусочков.`;
-          randomBtn.disabled = false;
-          openBtn.disabled = false;
-        } else {
-          hint.textContent = 'Данных пока нет, ждём…';
-          setTimeout(() => post('QUERY_INFO'), 1000);
+      switch (type) {
+        case 'IFRAME_READY':
+          hint.textContent = 'Iframe жив. Ждём данные…';
+          post('QUERY_INFO');
+          break;
+        case 'INFO':
+          const n = payload?.piecesCount ?? 0;
+          if (n > 0) {
+            hint.textContent = `Данные готовы: ${n} кусочков.`;
+            randomBtn.disabled = false;
+            openBtn.disabled = false;
+          } else {
+            hint.textContent = 'Данных пока нет, ждём…';
+            setTimeout(() => post('QUERY_INFO'), 1000);
+          }
+          break;
+        case 'BUSY_STATE': {
+          const busy = !!payload?.busy;
+          randomBtn.disabled = busy;
+          openBtn.disabled = busy;
+          closeBtn.disabled = busy; // закрыть можно только когда не занято
+          break;
         }
-      }
-      if (type === 'BUSY_STATE') {
-        const busy = !!payload?.busy;
-        randomBtn.disabled = busy;
-        openBtn.disabled = busy;
-      }
-      if (type === 'OPEN_RESULT') {
-        console.log('Результат открытия:', payload);
-        // спросим занятость после открытия
-        setTimeout(() => post('QUERY_BUSY'), 200);
+        case 'OPEN_RESULT':
+          console.log('Результат открытия:', payload);
+          setTimeout(() => post('QUERY_BUSY'), 200);
+          break;
+        case 'OPENING':
+          console.log('Начало открытия кусочка:', payload);
+          hint.textContent = `Открываем кусочек user_id=${payload?.piece?.user_id || '???'}`;
+          break;
+        case 'OPENED':
+          console.log('Кусочек открыт:', payload);
+          hint.textContent = `Открыт кусочек user_id=${payload?.piece?.user_id || '???'}`;
+          closeBtn.disabled = false;
+          break;
+        case 'CLOSED':
+          console.log('Кусочек закрыт:', payload);
+          hint.textContent = 'Кусочек закрыт.';
+          closeBtn.disabled = true;
+          break;
       }
     });
 
@@ -90,6 +109,7 @@
       }
       post('OPEN_BY_USER', { userId: id });
     });
+    closeBtn.addEventListener('click', () => post('CLOSE_ANY'));
   </script>
 </body>
 </html>
