@@ -37,79 +37,107 @@
   <div class="hint" id="hint">Ожидание готовности iframe…</div>
 
   <script>
-    const frame = document.getElementById('game-frame');
-    const TARGET_ORIGIN = 'https://webgltestorg.github.io'; // домен игры
+  const frame = document.getElementById('game-frame');
+  const TARGET_ORIGIN = 'https://webgltestorg.github.io'; // домен игры
 
-    const randomBtn = document.getElementById('randomBtn');
-    const openBtn = document.getElementById('openBtn');
-    const closeBtn = document.getElementById('closeBtn');
-    const userIdInput = document.getElementById('userIdInput');
-    const hint = document.getElementById('hint');
+  const randomBtn = document.getElementById('randomBtn');
+  const openBtn = document.getElementById('openBtn');
+  const closeBtn = document.getElementById('closeBtn');
+  const userIdInput = document.getElementById('userIdInput');
+  const hint = document.getElementById('hint');
 
-    function post(type, payload) {
-      frame.contentWindow?.postMessage({ type, payload }, TARGET_ORIGIN);
-    }
+  let currentOpen = null; // храним инфу об открытом кусочке (если есть)
 
-    // обработчик событий от игры
-    window.addEventListener('message', (e) => {
-      if (e.origin !== TARGET_ORIGIN) return;
-      const { type, payload } = e.data || {};
+  function post(type, payload) {
+    frame.contentWindow?.postMessage({ type, payload }, TARGET_ORIGIN);
+  }
 
-      switch (type) {
-        case 'IFRAME_READY':
-          hint.textContent = 'Iframe жив. Ждём данные…';
-          post('QUERY_INFO');
-          break;
-        case 'INFO':
-          const n = payload?.piecesCount ?? 0;
-          if (n > 0) {
-            hint.textContent = `Данные готовы: ${n} кусочков.`;
-            randomBtn.disabled = false;
-            openBtn.disabled = false;
-          } else {
-            hint.textContent = 'Данных пока нет, ждём…';
-            setTimeout(() => post('QUERY_INFO'), 1000);
-          }
-          break;
-        case 'BUSY_STATE': {
-          const busy = !!payload?.busy;
-          randomBtn.disabled = busy;
-          openBtn.disabled = busy;
-          closeBtn.disabled = busy; // закрыть можно только когда не занято
-          break;
+  window.addEventListener('message', (e) => {
+    if (e.origin !== TARGET_ORIGIN) return;
+    const { type, payload } = e.data || {};
+
+    switch (type) {
+      case 'IFRAME_READY':
+        hint.textContent = 'Iframe жив. Ждём данные…';
+        post('QUERY_INFO');
+        break;
+
+      case 'INFO': {
+        const n = payload?.piecesCount ?? 0;
+        if (n > 0) {
+          hint.textContent = `Данные готовы: ${n} кусочков.`;
+          randomBtn.disabled = false;
+          openBtn.disabled = false;
+        } else {
+          hint.textContent = 'Данных пока нет, ждём…';
+          setTimeout(() => post('QUERY_INFO'), 1000);
         }
-        case 'OPEN_RESULT':
-          console.log('Результат открытия:', payload);
-          setTimeout(() => post('QUERY_BUSY'), 200);
-          break;
-        case 'OPENING':
-          console.log('Начало открытия кусочка:', payload);
-          hint.textContent = `Открываем кусочек user_id=${payload?.piece?.user_id || '???'}`;
-          break;
-        case 'OPENED':
-          console.log('Кусочек открыт:', payload);
-          hint.textContent = `Открыт кусочек user_id=${payload?.piece?.user_id || '???'}`;
-          closeBtn.disabled = false;
-          break;
-        case 'CLOSED':
-          console.log('Кусочек закрыт:', payload);
-          hint.textContent = 'Кусочек закрыт.';
-          closeBtn.disabled = true;
-          break;
+        break;
       }
-    });
 
-    // кнопки
-    randomBtn.addEventListener('click', () => post('OPEN_RANDOM'));
-    openBtn.addEventListener('click', () => {
-      const id = userIdInput.value.trim();
-      if (!id) {
-        alert('Введите user_id');
-        return;
+      case 'BUSY_STATE': {
+        const busy = !!payload?.busy;
+        // ВАЖНО: не трогаем closeBtn здесь!
+        randomBtn.disabled = busy;
+        openBtn.disabled = busy;
+        break;
       }
-      post('OPEN_BY_USER', { userId: id });
-    });
-    closeBtn.addEventListener('click', () => post('CLOSE_ANY'));
-  </script>
+
+      case 'OPEN_RESULT':
+        console.log('Результат открытия:', payload);
+        setTimeout(() => post('QUERY_BUSY'), 200);
+        break;
+
+      case 'OPENING': {
+        console.log('Начало открытия кусочка:', payload);
+        const piece = payload?.piece;
+        currentOpen = payload || null;
+        hint.textContent = piece
+          ? `Открываем: ${piece.title ?? piece.name ?? piece.user_id ?? '—'}`
+          : `Открываем кусочек (level=${payload?.level}, slot=${payload?.slot})`;
+        // Кнопку закрытия включим только когда реально открыт (OPENED)
+        break;
+      }
+
+      case 'OPENED': {
+        console.log('Кусочек открыт:', payload);
+        const piece = payload?.piece;
+        currentOpen = payload || null;
+        hint.textContent = piece
+          ? `Открыт: ${piece.title ?? piece.name ?? piece.user_id ?? '—'}`
+          : 'Кусочек открыт';
+        closeBtn.disabled = false; // тут включаем
+        break;
+      }
+
+      case 'CLOSED':
+        console.log('Кусочек закрыт:', payload);
+        currentOpen = null;
+        hint.textContent = 'Кусочек закрыт.';
+        closeBtn.disabled = true;
+        break;
+
+      case 'OPEN_FAILED':
+        console.warn('Открытие не удалось:', payload);
+        currentOpen = null;
+        closeBtn.disabled = true;
+        hint.textContent = 'Ошибка открытия.';
+        break;
+    }
+  });
+
+  // кнопки
+  randomBtn.addEventListener('click', () => post('OPEN_RANDOM'));
+  openBtn.addEventListener('click', () => {
+    const id = userIdInput.value.trim();
+    if (!id) {
+      alert('Введите user_id');
+      return;
+    }
+    post('OPEN_BY_USER', { userId: id });
+  });
+  closeBtn.addEventListener('click', () => post('CLOSE_ANY')); // синоним CLOSE_OPENED
+</script>
+
 </body>
 </html>
