@@ -64,12 +64,15 @@
 
   window.addEventListener('message', (e) => {
     // дебаг: смотри, что реально приходит
-    console.log('[parent <- child]', e.origin, e.data);
+    console.log('[parent <- child RAW]', e.origin, e.data);
 
     // принимаем только сообщения именно от айфрейма
     if (e.origin !== FRAME_ORIGIN) return;
 
-    const { type, payload } = e.data || {};
+    const { type, payload, action, timestamp } = e.data || {};
+
+    // ✨ дополнительный явный лог
+    console.log('[parent] TYPE=', type, 'PAYLOAD=', payload, 'ACTION=', action, 'TS=', timestamp);
 
     switch (type) {
       case 'IFRAME_READY':
@@ -92,7 +95,6 @@
 
       case 'BUSY_STATE': {
         const busy = !!payload?.busy;
-        // Важно: не трогаем closeBtn здесь, иначе он гаснет при LockedOut
         randomBtn.disabled = busy;
         openBtn.disabled   = busy;
         break;
@@ -107,7 +109,7 @@
       case 'OPENED': {
         currentOpen = payload || null;
         hint.textContent = `Открыт: ${pieceToText(payload)}`;
-        closeBtn.disabled = false; // включаем закрытие только здесь
+        closeBtn.disabled = false;
         break;
       }
 
@@ -126,13 +128,23 @@
       }
 
       case 'OPEN_RESULT': {
-        // опционально: спросим актуальную занятость
         setTimeout(() => post('QUERY_BUSY'), 200);
         break;
       }
 
       case 'CLOSE_RESULT': {
         if (!payload?.ok) console.warn('Не удалось закрыть (ничего не открыто?)');
+        break;
+      }
+
+      // новое: события видимости первых 4 уровней
+      case 'TOP4_VISIBILITY': {
+        console.log('[parent] TOP4_VISIBILITY:', action, 'at', new Date(timestamp||Date.now()).toISOString());
+        break;
+      }
+
+      case 'tower.top4Visibility': {
+        console.log('[parent] tower.top4Visibility:', action);
         break;
       }
     }
@@ -145,11 +157,7 @@
     if (!id) { alert('Введите user_id'); return; }
     post('OPEN_BY_USER', { userId: id });
   });
-  // закрывает ЛЮБОЙ открытый кусок (и вручную открытый, и программно)
   closeBtn.addEventListener('click', () => post('CLOSE_ANY'));
 </script>
-
-
-
 </body>
 </html>
