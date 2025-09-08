@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>TestCake</title>
   <style>
+    /* ===== Центрирование страницы и фон ===== */
     html, body {
       margin: 0;
       padding: 0;
@@ -12,10 +13,11 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      background: #f0f0f0; /* можно поменять фон страницы */
+      background: #f0f0f0; /* фон страницы */
       font-family: sans-serif;
     }
 
+    /* ===== Контейнер игры ===== */
     #GameDiv {
       width: 500px;
       height: 500px;
@@ -25,30 +27,44 @@
       background: transparent;
     }
 
-    #Cocos3dGameContainer, #GameCanvas {
+    #Cocos3dGameContainer,
+    #GameCanvas {
       width: 500px;
       height: 500px;
       display: block;
       background: transparent !important;
+      user-select: none; /* отключаем выделение */
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      -khtml-user-select: none;
+      outline: none; /* убираем рамку при фокусе */
     }
   </style>
 </head>
 <body>
+
   <div id="GameDiv" cc_exact_fit_screen="true">
     <div id="Cocos3dGameContainer">
       <canvas id="GameCanvas" oncontextmenu="event.preventDefault()" tabindex="99"></canvas>
     </div>
   </div>
 
+  <!-- Polyfills bundle -->
   <script src="src/polyfills.bundle.js" charset="utf-8"></script>
+
+  <!-- SystemJS support -->
   <script src="src/system.bundle.js" charset="utf-8"></script>
+
+  <!-- Import map -->
   <script src="src/import-map.json" type="systemjs-importmap" charset="utf-8"></script>
 
+  <!-- Главный скрипт Cocos Creator -->
   <script>
     System.import('./index.js')
       .then(() => {
         console.log('Игра Cocos Creator загружена и готова');
-        window.GAME_READY = true;
+        window.GAME_READY = true; // готовность игры для будущих кнопок
       })
       .catch(console.error);
   </script>
