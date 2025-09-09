@@ -30,8 +30,8 @@
 
   <div class="controls">
     <button id="randomBtn" disabled>🎲 Случайный кусок</button>
-    <input id="userIdInput" type="text" placeholder="Введите user_id (UUID)" />
-    <button id="openBtn" disabled>🔎 Открыть по user_id</button>
+    <input id="uniqIdInput" type="text" placeholder="Введите uniq_id (UUID)" />
+    <button id="openBtn" disabled>🔎 Открыть по uniq_id</button>
     <button id="closeBtn" disabled>❌ Закрыть кусочек</button>
   </div>
   <div class="hint" id="hint">Ожидание готовности iframe…</div>
@@ -44,7 +44,7 @@
   const randomBtn   = document.getElementById('randomBtn');
   const openBtn     = document.getElementById('openBtn');
   const closeBtn    = document.getElementById('closeBtn');
-  const userIdInput = document.getElementById('userIdInput');
+  const uniqIdInput = document.getElementById('uniqIdInput');
   const hint        = document.getElementById('hint');
 
   let currentOpen = null;
@@ -56,10 +56,12 @@
   // небольшой помощник для показа инфы о кусочке
   function pieceToText(payload) {
     const p = payload?.piece || {};
-    const id = p.user_id || '—';
+    const id    = p.uniq_id || '—';
     const title = p.title || p.name || '';
-    const fill = (p.filling_id ?? '') + '';
-    return `user_id=${id}${title ? `, title="${title}"` : ''}${fill ? `, filling_id=${fill}` : ''}`;
+    const fill  = (p.filling_id ?? '') + '';
+    const ca    = p.created_at ? `, created_at=${p.created_at}` : '';
+    const ms    = p.moderate_status ? `, status=${p.moderate_status}` : '';
+    return `uniq_id=${id}${title ? `, title="${title}"` : ''}${fill ? `, filling_id=${fill}` : ''}${ca}${ms}`;
   }
 
   window.addEventListener('message', (e) => {
@@ -139,7 +141,7 @@
 
       // новое: события видимости первых 4 уровней
       case 'TOP4_VISIBILITY': {
-        console.log('[parent] TOP4_VISIBILITY:', action, 'at', new Date(timestamp||Date.now()).toISOString());
+        console.log('[parent] TOP4_VISIBILITY:', action);
         break;
       }
 
@@ -153,11 +155,14 @@
   // кнопки
   randomBtn.addEventListener('click', () => post('OPEN_RANDOM'));
   openBtn.addEventListener('click', () => {
-    const id = userIdInput.value.trim();
-    if (!id) { alert('Введите user_id'); return; }
-    post('OPEN_BY_USER', { userId: id });
+    const id = uniqIdInput.value.trim();
+    if (!id) { alert('Введите uniq_id'); return; }
+    // новое основное событие
+    post('OPEN_BY_UNIQ', { uniqId: id });
+    // на случай старой версии внутри iframe можно дополнительно продублировать:
+    // post('OPEN_BY_USER', { userId: id });
   });
   closeBtn.addEventListener('click', () => post('CLOSE_ANY'));
-</script>
+  </script>
 </body>
 </html>
